@@ -1,0 +1,245 @@
+---
+title: "Homework 07"
+output: html_notebook
+---
+
+The strenght of concrete with Artificial Neural Network
+
+ANN is the model that could reliably predict concrete strength given a listing of the composition of the input materials.
+
+Step 1: Collecting the data
+
+I am utilising data from UCI machine learning Data Repository.according to website the concrete dataset contains 1,030 examples of concrete with eight features describing the components used in the mixture.
+
+Step 2: Expolring & preparing the data
+
+```{r}
+# read in data and examine structure
+concrete <- read.csv("http://www.sci.csueastbay.edu/~esuess/classes/Statistics_6620/Presentations/ml11/concrete.csv")
+str(concrete)
+
+```
+We have 9 variables in which 8 are inputs & 1 strenght is output variable. In this example, we have 8 different features.
+I am going to normalize my data sets because I want all variables in the same scale.
+```{r}
+# custom normalization function
+normalize <- function(x) { 
+  return((x - min(x)) / (max(x) - min(x)))
+}
+```
+```{r}
+# apply normalization to entire data frame
+concrete_norm <- as.data.frame(lapply(concrete, normalize))
+```
+```{r}
+# confirm that the range is now between zero and one
+summary(concrete_norm$strength)
+```
+Getting summary of the original data.
+```{r}
+# compared to the original minimum and maximum
+summary(concrete$strength)
+```
+Creating training & test data, training to build model & test to check model performance.
+```{r}
+# create training and test data
+concrete_train <- concrete_norm[1:773, ]
+concrete_test <- concrete_norm[774:1030, ]
+```
+
+Step 3: Training a model on the data 
+
+I am using package neuralnet for neural network algorithm.
+```{r}
+# train the neuralnet model
+library(neuralnet)
+# simple ANN with only a single hidden neuron
+set.seed(12345) # to guarantee repeatable results
+concrete_model <- neuralnet(formula = strength ~ cement + slag +
+                              ash + water + superplastic + 
+                              coarseagg + fineagg + age,
+                              data = concrete_train)
+```
+
+Visualization of neural topology using plot function.
+
+```{r}
+# visualize the network topology
+plot(concrete_model)
+```
+In this model there is one singal input node with the eight features followed by singal hidden node & singal output. R reports the number of training steps and an error measure called the Sum of Squared Errors (SSE), which as you might expect, is the sum of the squared predicted minus actual values. A lower SSE implies better predictive performance. This is helpful for estimating the model's performance on the training data.
+Let's try some better plot. 
+```{r}
+# alternative plot
+library(NeuralNetTools)
+# plotnet
+par(mar = numeric(4), family = 'serif')
+plotnet(concrete_model, alpha = 0.6)
+```
+Thick black line represent higher weighted feature.Gray line is for the negative weighted feature. I represent features, H represent hidden node & O stands for output.B is for the baised parameters.
+
+Step 4: Evaluating model performance
+
+The compute() function  returns a list with two components: $neurons, which stores the neurons for each layer in the network, and $net.result, which stores the predicted values.It is numerical prediction problem rather than classification. I will measure correlation between predicted value & true value.
+
+```{r}
+# obtain model results
+model_results <- compute(concrete_model, concrete_test[1:8])
+# obtain predicted strength values
+predicted_strength <- model_results$net.result
+# examine the correlation between predicted and actual values
+cor(predicted_strength, concrete_test$strength)
+```
+The predicted and the true values are 80.65% correlated.
+```{r}
+# produce actual predictions by 
+head(predicted_strength)
+```
+I am getting normalised strenght of concerete.
+```{r}
+concrete_train_original_strength <- concrete[1:773,"strength"]
+
+strength_min <- min(concrete_train_original_strength)
+strength_max <- max(concrete_train_original_strength)
+```
+```{r}
+head(concrete_train_original_strength)
+```
+I am unnormalizing concrete strenght.
+```{r}
+# custom normalization function
+unnormalize <- function(x, min, max) { 
+  return( (max - min)*x + min )
+}
+```
+```{r}
+strength_pred <- unnormalize(predicted_strength, strength_min, strength_max)
+strength_pred
+```
+Step 5: Improving model performance
+
+Now, I am increasing number of headen nodes for more accuracy.I am going to use 5 hidden nodes.
+```{r}
+# a more complex neural network topology with 5 hidden neurons
+set.seed(12345) # to guarantee repeatable results
+concrete_model2 <- neuralnet(strength ~ cement + slag +
+                               ash + water + superplastic + 
+                               coarseagg + fineagg + age,
+                               data = concrete_train, hidden = 5, act.fct = "logistic")
+
+```
+Grafical representation of the model.
+```{r}
+# plot the network
+plot(concrete_model2)
+```
+```{r}
+# plotnet
+par(mar = numeric(4), family = 'serif')
+plotnet(concrete_model2, alpha = 0.6)
+```
+```{r}
+# evaluate the results as we did before
+model_results2 <- compute(concrete_model2, concrete_test[1:8])
+predicted_strength2 <- model_results2$net.result
+cor(predicted_strength2, concrete_test$strength)  
+
+```
+The correlation between predicted & true value is 92.46% , which is better than the previous 1 hidden node.Notice that the reported error (measured again by SSE) has been reduced from 5.08 in the previous model to 1.63 here. Additionally, the number of training steps rose from 4,882 to 86,849, which should come as no surprise given how much more complex the model has become.
+Lets try different hidden nodes.
+```{r}
+# try different activation function
+# a more complex neural network topology with 5 hidden neurons
+set.seed(12345) # to guarantee repeatable results
+concrete_model2 <- neuralnet(strength ~ cement + slag +
+                               ash + water + superplastic + 
+                               coarseagg + fineagg + age,
+                             data = concrete_train, hidden = 5, act.fct = "tanh")
+
+```
+
+```{r}
+# evaluate the results as we did before
+model_results2 <- compute(concrete_model2, concrete_test[1:8])
+predicted_strength2 <- model_results2$net.result
+cor(predicted_strength2, concrete_test$strength)  
+
+```
+```{r}
+# a more complex neural network topology with 3 hidden neurons
+set.seed(12345) # to guarantee repeatable results
+concrete_model2 <- neuralnet(strength ~ cement + slag +
+                               ash + water + superplastic + 
+                               coarseagg + fineagg + age,
+                               data = concrete_train, hidden = 3, act.fct = "logistic")
+
+```
+```{r}
+
+# plot the network
+plot(concrete_model2)
+```
+```{r}
+# plotnet
+par(mar = numeric(4), family = 'serif')
+plotnet(concrete_model2, alpha = 0.6)
+```
+```{r}
+# evaluate the results as we did before
+model_results2 <- compute(concrete_model2, concrete_test[1:8])
+predicted_strength2 <- model_results2$net.result
+cor(predicted_strength2, concrete_test$strength)
+```
+```{r}
+set.seed(12345) # to guarantee repeatable results
+concrete_model2 <- neuralnet(strength ~ cement + slag +
+                               ash + water + superplastic + 
+                               coarseagg + fineagg + age,
+                               data = concrete_train, hidden = 10, act.fct = "logistic")
+```
+```{r}
+# plot the network
+plot(concrete_model2)
+```
+```{r}
+# plotnet
+par(mar = numeric(4), family = 'serif')
+plotnet(concrete_model2, alpha = 0.6)
+```
+```{r}
+# evaluate the results as we did before
+model_results2 <- compute(concrete_model2, concrete_test[1:8])
+predicted_strength2 <- model_results2$net.result
+cor(predicted_strength2, concrete_test$strength)
+```
+I am getting more correlation for hidden node 10, which is 93.64%.
+
+Lets try H20 library code:
+```{r}
+# using h2o deeplearning
+library(h2o)
+h2o.init()
+concrete.hex <- h2o.importFile("http://www.sci.csueastbay.edu/~esuess/classes/Statistics_6620/Presentations/ml11/concrete.csv")
+
+```
+```{r}
+summary(concrete.hex)
+```
+```{r}
+splits <- h2o.splitFrame(concrete.hex, 0.75, seed=1234)
+dl <- h2o.deeplearning(x=1:8,y="strength",training_frame=splits[[1]],activation = "Tanh", 
+                       hidden = c(200,200), distribution = "gaussian")
+dl.predict <- h2o.predict (dl, splits[[2]])
+cor(as.vector(dl.predict), as.vector(splits[[2]]$strength))
+```
+Correlation of predicted and true value is 88.31%.
+```{r}
+dl@parameters
+```
+```{r}
+h2o.performance(dl)
+```
+```{r}
+h2o.shutdown()
+```
+
