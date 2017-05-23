@@ -1,0 +1,402 @@
+---
+title: "Homework 6"
+author: "Chinki"
+date: "May 8, 2017"
+output: word_document
+---
+
+1.Logistic Regression analysis of the challenger data
+
+Step 1: Collecting the data
+
+we will use data donated to the UCI Machine Learning Data Repository. The United States space shuttle Challenger were killed when a rocket booster failed, causing a catastrophic disintegration. Data contains distress_ct,	temperature,	field_check_pressure &	flight_num.
+```{r}
+#Reading the dataset
+launch <- read.csv("http://www.sci.csueastbay.edu/~esuess/classes/Statistics_6620/Presentations/ml10/challenger.csv")
+```
+
+Step 2: Exploring and preparing the data
+
+Getting structure of the dataset
+```{r}
+# examine the launch data
+str(launch)
+```
+All the foure variables are int type.
+```{r}
+# First recode the distress_ct variable into 0 and 1, making 1 to represent at least
+launch$distress_ct = ifelse(launch$distress_ct<1,0,1)
+launch$distress_ct
+```
+```{r}
+# Creating random sampling
+indx = sample(1:nrow(launch), as.integer(0.9*nrow(launch)))
+indx
+```
+```{r}
+#Creating training & test data set
+launch_train = launch[indx,]
+launch_test = launch[-indx,]
+```
+```{r}
+#Creating labels
+launch_train_labels = launch[indx,1]
+launch_test_labels = launch[-indx,1] 
+```
+ 
+
+```{r}
+# Check if there are any missing values
+
+library(Amelia)
+missmap(launch, main = "Missing values vs observed")
+```
+```{r}
+# number of missing values in each column
+sapply(launch,function(x) sum(is.na(x)))
+```
+```{r}
+# number of unique values in each column
+sapply(launch, function(x) length(unique(x)))
+```
+Step 3: Training a model on the data
+
+Applying Regression model to all variables.
+```{r}
+# fit the logistic regression model, with all predictor variables
+model <- glm(distress_ct ~.,family=binomial(link='logit'),data=launch_train)
+model
+```
+AIC is 24.33, to improve model performance we will look for lower AIC than 24.33.
+```{r}
+#Getting summary of model
+summary(model)
+```
+None of parameter is significant.
+
+Step 4: Evaluating model performance
+```{r}
+#ANOVA of the model
+anova(model, test="Chisq")
+```
+Temperature is significant in the model.
+
+```{r}
+# drop the insignificant predictors, alpha = 0.10
+model <- glm(distress_ct ~ temperature,family=binomial(link='logit'),data=launch_train)
+model
+
+```
+```{r}
+#Creating summary of the model
+summary(model)
+```
+Temperature is significant.
+```{r}
+#ANOVA to check model performance
+anova(model, test="Chisq")
+```
+```{r}
+# check Accuracy
+fitted.results <- predict(model,newdata=launch_test,type='response')
+fitted.results <- ifelse(fitted.results > 0.5,1,0)
+```
+```{r}
+misClasificError <- mean(fitted.results != launch_test$distress_ct)
+print(paste('Accuracy',1-misClasificError))
+```
+```{r}
+library(ROCR)
+p <- predict(model, newdata=launch_test, type="response")
+pr <- prediction(p,launch_test$distress_ct)
+prf <- performance(pr, measure = "tpr", x.measure = "fpr")
+plot(prf)
+```
+```{r}
+auc <- performance(pr, measure = "auc")
+auc <- auc@y.values[[1]]
+auc
+```
+As I am getting score 0.5 which means No discrimination.
+
+
+2. Logistic Regression analysis of the credit data
+
+Step 1: Collecting the data
+source of the data http://archive.ics.uci.edu/ml.The dataset contains information on loans obtained from a credit agency in Germany.The credit dataset includes 1,000 examples on loans, plus a set of numeric and nominal features indicating the characteristics of the loan and the loan applicant. A class variable indicates whether the loan went into default.
+
+Step 2: Exploring and preparing the data
+
+```{r}
+#Reading the data
+credit <- read.csv("credit.csv")
+```
+```{r}
+#Examin structure of the data
+str(credit)
+```
+```{r}
+#Boxplot of loan duration & amout
+boxplot(credit$months_loan_duration+credit$amount,credit$default)
+```
+```{r}
+#Training & test dataset ups
+index=sample(1:nrow(credit),as.integer(0.9*nrow(credit)))
+```
+```{r}
+#Creating training & test data
+training=credit[index,]
+test=credit[-index,]
+
+#Creating levels for training & test data
+training_labels=credit[index,17]
+test_labels=credit[-index,17]
+```
+```{r}
+#Checking for missing values 
+library(Amelia)
+missmap(credit, main = "Missing values vs observed")
+```
+```{r}
+# number of missing values in each column
+sapply(credit,function(x) sum(is.na(x)))
+```
+```{r}
+# number of unique values in each column
+sapply(credit, function(x) length(unique(x)))
+```
+```{r}
+# fit the logistic regression model, with all predictor variables
+model=glm(default~. ,family = binomial(link='logit'),data=training)
+model
+```
+```{r}
+#Summary of regression model
+summary(model)
+```
+```{r}
+#Evaluvationg model performance
+anova(model, test="Chisq")
+```
+```{r}
+#Droping insignificant predictor
+model1=glm(default~checking_balance+months_loan_duration+credit_history+savings_balance+employment_duration+percent_of_income+age,family = binomial(link = 'logit'),data=training)
+model1
+```
+```{r}
+#summary of model1
+summary(model1)
+```
+```{r}
+#Evaluvating model performance
+anova(model1, test="Chisq")
+```
+Age is not significant so we can drop age as well.
+
+```{r}
+#Checking Accuracy
+fitted.results <- predict(model1,newdata=test,type='response')
+fitted.results <- ifelse(fitted.results > 0.5,1,0)
+```
+```{r}
+misClasificError <- mean(fitted.results != test$default)
+print(paste('Accuracy',1-misClasificError))
+```
+As data is very small so test data does not contains both 0 & 1 values.
+```{r}
+#Roc curve
+
+library(ROCR)
+p <- predict(model, newdata=test, type="response")
+pr <- prediction(p, test$default)
+prf <- performance(pr, measure = "tpr", x.measure = "fpr")
+plot(prf)
+```
+```{r}
+#Getting AUC values
+auc <- performance(pr, measure = "auc")
+auc <- auc@y.values[[1]]
+auc
+```
+As auc value is 0.78 it is acceptable.
+
+Classification Trees
+```{r}
+# the distribution of defaults
+plot(credit$default)
+```
+```{r}
+# regression tree using rpart
+library(rpart)
+m.rpart <- rpart(default ~ ., data = training)
+```
+```{r}
+# get basic information about the tree
+m.rpart
+```
+```{r}
+# get more detailed information about the tree
+summary(m.rpart)
+```
+```{r}
+# use the rpart.plot package to create a visualization
+library(rpart.plot)
+# a basic decision tree diagram
+rpart.plot(m.rpart, digits = 3)
+```
+```{r}
+# a few adjustments to the diagram
+rpart.plot(m.rpart, digits = 4, fallen.leaves = TRUE, type = 3, extra = 101)
+```
+Step 4: Evaluate model performance
+
+```{r}
+# generate predictions for the testing dataset
+p.rpart <- predict(m.rpart, test)
+```
+```{r}
+# compare the distribution of predicted values vs. actual values
+summary(p.rpart)
+summary(test$default)
+```
+```{r}
+# compare the correlation
+cor(p.rpart, as.numeric(test$default))
+```
+```{r}
+# function to calculate the mean absolute error
+MAE <- function(actual, predicted) {
+  mean(abs(actual - predicted))  
+}
+
+# mean absolute error between predicted and actual values
+MAE(p.rpart, as.numeric(test$default))
+
+# mean absolute error between actual values and mean value
+mean(as.numeric(training$default)) 
+MAE( 0.86, as.numeric(training$default))
+```
+The Random Forest analysis of the credit data-
+
+
+
+
+
+
+
+
+
+
+The stock Market Data
+
+The Smarket data,is part of the ISLR library.This data set consists of percentage returns for the S&P 500 stock index over 1,250 days, from the beginning of 2001 until the end of 2005.
+```{r}
+library(ISLR)
+names(Smarket)
+```
+```{r}
+#Dimention of dataset
+dim(Smarket)
+```
+```{r}
+#Getting summary of dataset
+summary(Smarket)
+```
+```{r}
+#Scatter plot of all variables of Dataset
+pairs(Smarket)
+```
+The cor() function produces a matrix that contains all of the pairwise correlations among the predictors in a data set.
+```{r}
+#Correlation matrix
+cor(Smarket[,-9])
+```
+As one would expect, the correlations between the lag variables and today's returns are close to zero. In other words, there appears to be little correlation between today's returns and previous days' returns. The only substantial correlation is between Year and Volume.
+```{r}
+#Scatterplot of volume
+attach(Smarket)
+plot(Volume)
+```
+Logistic Regression
+
+```{r}
+#Running logistic regression
+glm.fit=glm(Direction~Lag1+Lag2+Lag3+Lag4+Lag5+Volume , data=Smarket ,family=binomial )
+glm.fit
+```
+```{r}
+#getting summary
+summary(glm.fit)
+```
+The predict() function can be used to predict the probability that the market will go up, given values of the predictors. 
+```{r}
+glm.probs=predict(glm.fit,type="response")
+glm.probs[1:10]
+```
+
+```{r}
+#Getting contrast 
+contrasts(Direction)
+```
+In order to make a prediction as to whether the market will go up or down on a particular day, we must convert these predicted probabilities into class labels, Up or Down.
+```{r}
+glm.pred=rep("Down",1250)
+glm.pred[glm.probs>0.5]="up"
+```
+The first command creates a vector of 1,250 Down elements. The second line transforms to Up all of the elements for which the predicted probability of a market increase exceeds 0.5.
+```{r}
+#Creating table 
+table(glm.pred ,Direction )
+```
+```{r}
+(507+145)/1250
+```
+```{r}
+mean(glm.pred==Direction )
+```
+
+In this case, logistic regression correctly predicted the movement of the market 52.2%ofthetime.
+
+```{r}
+train=(Year<2005)
+Smarket.2005= Smarket [!train ,]
+dim(Smarket.2005)
+```
+```{r}
+Direction.2005= Direction [!train]
+```
+The object train is a vector of 1,250 elements, corresponding to the observations in our data set.
+```{r}
+glm.fit=glm(Direction~Lag1+Lag2+Lag3+Lag4+Lag5+Volume,data = Smarket,family = binomial,subset=train)
+glm.probs=predict(glm.fit,Smarket.2005,type = "response")
+```
+```{r}
+glm.pred=rep("Down",252)
+glm.pred[glm.probs>0.5]="up"
+table(glm.pred,Direction.2005)
+```
+```{r}
+mean(glm.pred==Direction.2005)
+```
+```{r}
+mean(glm.pred!=Direction.2005)
+```
+```{r}
+glm.fit=glm(Direction~Lag1+Lag2 ,data=Smarket ,family=binomial, subset=train) 
+glm.probs=predict(glm.fit ,Smarket.2005, type="response") 
+glm.pred=rep("Down",252)
+glm.pred[glm.probs >.5]="up"
+table(glm.pred ,Direction.2005)
+```
+```{r}
+mean(glm.pred==Direction.2005)
+```
+```{r}
+106/(106+76)
+```
+```{r}
+predict (glm.fit ,newdata=data.frame(Lag1=c(1.2,1.5), Lag2=c(1.1,-0.8)),type="response")
+```
+
+
+
