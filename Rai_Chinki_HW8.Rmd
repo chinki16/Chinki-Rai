@@ -1,0 +1,347 @@
+---
+title: "Homework 8"
+author: "Chinki"
+date: "May 22, 2017"
+output: word_document
+---
+
+The SVM analysis on the OCR analysis letter data
+Step 1: Collecting the data
+source of the dataset  the UCI Machine Learning Data Repository.
+The dataset contains 20,000 examples of 26 English alphabet capital letters as printed using 20 different randomly reshaped and distorted black and white fonts.the letters are challenging for a computer to identify, yet are easily recognized by a human being
+
+Step 2: Exploring and preparing the data 
+```{r}
+#Reading data into R
+letters <- read.csv("http://www.sci.csueastbay.edu/~esuess/classes/Statistics_6620/Presentations/ml11/letterdata.csv")
+```
+```{r}
+#Getting structure of the data
+str(letters)
+```
+All the variables are interger type except letter. In the SVM, all features should be numeric. On the other hand, some of the ranges for these integer variables appear fairly wide. This indicates that we need to normalize or standardize the data.
+But it is good in the SVM because R performe rescaling automatically in SVM.
+Lets move to divide data into training and test.
+```{r}
+# divide into training and test data
+letters_train <- letters[1:16000, ]
+letters_test  <- letters[16001:20000, ]
+
+```
+Step 3: Training a model on the data
+
+I will use package kernlab for SVM. By default, the ksvm() function uses the Gaussian RBF kernel, but a number of other options  are provided.
+```{r}
+# begin by training a simple linear SVM
+library(kernlab)
+letter_classifier <- ksvm(letter ~ ., data = letters_train,
+                          kernel = "vanilladot")
+```
+vanilladot kernel is used for linera seperable boundry.
+```{r}
+# look at basic information about the model
+letter_classifier
+```
+This information tells us very little about how well the model will perform in the real world. We'll need to examine its performance on the testing dataset to know whether it generalizes well to unseen data. 
+training error is 13%.
+
+Step 4: Evaluating model performance
+
+The predict() function allows us to use the letter classification model to make predictions on the testing dataset.
+```{r}
+# predictions on testing dataset
+letter_predictions <- predict(letter_classifier, letters_test)
+head(letter_predictions)
+```
+```{r}
+#Getting table of prediction and test
+table(letter_predictions, letters_test$letter)
+```
+The diagonal values of 144, 121, 120, 156, and 127 indicate the total number of records where the predicted letter matches the true value.It is not possible to read this type of representation.
+
+```{r}
+# construct a vector of TRUE/FALSE indicating correct/incorrect predictions
+agreement <- letter_predictions == letters_test$letter
+table(agreement)
+```
+```{r}
+#Getting propotion of true & false values  
+prop.table(table(agreement))
+```
+The recognition accuracy of about 83 percent which is not to good. I can try to improve model.
+
+Step 5: Improving model performance 
+
+```{r}
+set.seed(12345)
+letter_classifier_rbf <- ksvm(letter ~ ., data = letters_train, kernel = "rbfdot")
+letter_predictions_rbf <- predict(letter_classifier_rbf, letters_test)
+agreement_rbf <- letter_predictions_rbf == letters_test$letter
+table(agreement_rbf)
+```
+It can be challenging, however, to choose from the many different kernel functions. A popular convention is to begin with the Gaussian RBF kernel.
+```{r}
+prop.table(table(agreement_rbf))
+```
+The recognition accuracy of about 93 percent which is not to good.
+Lets try another kernel
+I am going to use polynomial kernel.
+```{r}
+set.seed(12345)
+letter_classifier_rbf <- ksvm(letter ~ ., data = letters_train, kernel = "polydot")
+letter_predictions_rbf <- predict(letter_classifier_rbf, letters_test)
+agreement_rbf <- letter_predictions_rbf == letters_test$letter
+table(agreement_rbf)
+```
+```{r}
+prop.table(table(agreement_rbf))
+```
+83% accuracy.
+```{r}
+set.seed(12345)
+letter_classifier_rbf <- ksvm(letter ~ ., data = letters_train, kernel = "tanhdot")
+letter_predictions_rbf <- predict(letter_classifier_rbf, letters_test)
+
+agreement_rbf <- letter_predictions_rbf == letters_test$letter
+table(agreement_rbf)
+```
+Not performing good.
+
+
+The Cluster analysis on the sns data
+
+Step 1 - collecting data
+ we will use a dataset representing a random sample of 30,000 U.S. high school students who had profiles on a well-known SNS in 2006. To protect the users' anonymity, the SNS will remain unnamed.The full dataset is available at the Packt Publishing website with the filename snsdata.csv.The data was sampled evenly across four high school graduation years (2006 through 2009) representing the senior, junior, sophomore, and freshman classes at the time of data collection.
+ 
+Step 2 - exploring and preparing the data
+```{r}
+#Reading the data
+teens <- read.csv("http://www.sci.csueastbay.edu/~esuess/classes/Statistics_6620/Presentations/ml12/snsdata.csv")
+str(teens)
+```
+30000 teenagers record with 40 variables. In which four variables indicating personal characteristics and 36 words indicating interests. 
+There are missing values in the gender row.
+```{r}
+# Table of genders
+table(teens$gender)
+```
+```{r}
+#look at missing data for female variable
+table(teens$gender, useNA = "ifany")
+```
+2724 records have missing gender data.Females are 4 times more than the male.
+Age also has missing values.
+```{r}
+# look at missing data for age variable
+summary(teens$age)
+```
+5086 missing values in the age colun.
+Minimum and maximum value is also not making any sence.A 3 year old or a 106 year old is attending high school.
+```{r}
+# eliminate age outliers
+teens$age <- ifelse(teens$age >= 13 & teens$age < 20,
+                     teens$age, NA)
+
+```
+```{r}
+#Summary of the age
+summary(teens$age)
+```
+Now minimum and maximum is making sence to us. 5523 tenagers with the no information about age.
+Data preparation-Dummy coding for the missing values 
+An easy solution for handling the missing values is to exclude any record with a missing value.
+```{r}
+# reassign missing gender values to "unknown"
+teens$female <- ifelse(teens$gender == "F" &
+                         !is.na(teens$gender), 1, 0)
+teens$no_gender <- ifelse(is.na(teens$gender), 1, 0)
+```
+Create dummy variables for female and unknown gender.
+```{r}
+# check our recoding work
+table(teens$gender, useNA = "ifany")
+```
+```{r}
+# check our recoding work
+table(teens$female, useNA = "ifany")
+```
+```{r}
+# check our recoding work
+table(teens$no_gender, useNA = "ifany")
+```
+The number of 1 values for teens$female and teens$no_gender matches the number of F and NA values, respectively, so we should be able to trust our work.
+
+Data preparation - imputing the missing values
+let's eliminate the 5,523 missing age values.
+```{r}
+# finding the mean age by cohort
+mean(teens$age, na.rm = TRUE) # works
+```
+This reveals that the average student in our data is about 17 years old.
+```{r}
+# age by cohort
+aggregate(data = teens, age ~ gradyear, mean, na.rm = TRUE)
+```
+```{r}
+# create a vector with the average age for each gradyear, repeated by person
+ave_age <- ave(teens$age, teens$gradyear,
+                 FUN = function(x) mean(x, na.rm = TRUE))
+teens$age <- ifelse(is.na(teens$age), ave_age, teens$age)
+# check the summary results to ensure missing values are eliminated
+summary(teens$age)
+```
+Step 3 - training a model on the data
+
+```{r}
+#Z-scoring of the numeric variables 
+interests <- teens[5:40]
+interests_z <- as.data.frame(lapply(interests, scale))
+```
+```{r}
+set.seed(2345)
+teen_clusters <- kmeans(interests_z, 5)
+```
+
+Step 4 - evaluating model performance
+
+The success or failure of the model hinges on whether the clusters are useful for their intended purpose. 
+```{r}
+# look at the size of the clusters
+teen_clusters$size
+```
+Here, we see the five clusters we requested. The smallest cluster has 600 teenagers (2 percent) while the largest cluster has 21,514 (72 percent).
+
+```{r}
+# look at the cluster centers
+teen_clusters$centers
+```
+For example, the third row has the highest value in the basketball column, which means that cluster 3 has the highest average interest in basketball among all  the clusters.
+Hilighted points has highest average.
+Cluster 3 is substantially above the mean interest level on all the sports.
+
+Step 5 - improving model performance
+```{r}
+# apply the cluster IDs to the original data frame
+teens$cluster <- teen_clusters$cluster
+```
+```{r}
+# look at the first five records
+teens[1:5, c("cluster", "gender", "age", "friends")]
+```
+```{r}
+# mean age by cluster
+aggregate(data = teens, age ~ cluster, mean)
+```
+```{r}
+# proportion of females by cluster
+aggregate(data = teens, female ~ cluster, mean)
+```
+```{r}
+# mean number of friends by cluster
+aggregate(data = teens, friends ~ cluster, mean)
+```
+Using the aggregate() function, we can also look at the demographic characteristics of the clusters.
+
+The Association analysis on the groceries analysis letter data
+
+Step 1 - collecting data
+
+Our market basket analysis will utilize the purchase data collected from one month of operation at a real-world grocery store. The data contains 9,835 transactions or about 327 transactions per day (roughly 30 transactions per hour in a 12-hour business day), suggesting that the retailer is not particularly large, nor is it particularly small.
+The typical grocery store offers a huge variety of items. There might be five brands of milk, a dozen different types of laundry detergent, and three brands of coffee. Given the moderate size of the retailer, we will assume that they are not terribly concerned with finding rules that apply only to a specific brand of milk or detergent.
+
+Step 2 - exploring and preparing the data
+
+R created four columns to store the items in the transactional data: V1, V2, V3, and V4, which is in the first row. R chose to create four variables because the first line had exactly four comma-separated values. However, we know that grocery purchases can contain more than four items.So we will use sparse matrix.
+The solution to this problem utilizes a data structure called a sparse matrix. Since there are 169 different items in our grocery store data, our sparse matrix will contain 169 columns.
+```{r}
+# load the grocery data into a sparse matrix
+library(arules)
+groceries <- read.transactions("http://www.sci.csueastbay.edu/~esuess/classes/Statistics_6620/Presentations/ml13/groceries.csv", sep = ",")
+summary(groceries)
+
+```
+Dataset has 9835 rows and 169 column.Most frequent item is whole milk.A total of 2,159 transactions contained only a single item, while one transaction had 32 items. The first quartile and median purchase sizes are two and three items, respectively, implying that 25 percent of the transactions contained two or fewer items and the transactions were split in half between those with less than three items and those with more.
+```{r}
+
+# look at the first five transactions
+inspect(groceries[1:5])
+```
+The first five transactions are given.
+```{r}
+# examine the frequency of items
+itemFrequency(groceries[, 1:3])
+
+```
+The itemFrequency() function allows us to see the proportion of transactions that contain the item.
+
+```{r}
+# plot the frequency of items
+itemFrequencyPlot(groceries, support = 0.1,col="blue")
+```
+As shown in the following plot, this results in a histogram showing the eight items in the groceries data with at least 10 percent support. Means the iteams, which accour sell at least 10%.
+```{r}
+itemFrequencyPlot(groceries, topN = 20,col="blue")
+```
+If you would rather limit the plot to a specific number of items, the topN parameter can be used with itemFrequencyPlot.The histogram is then sorted by decreasing support, as shown in the following diagram of the top 20 items in the groceries data.
+```{r}
+# a visualization of the sparse matrix for the first five transactions
+image(groceries[1:5])
+```
+The resulting diagram depicts a matrix with 5 rows and 169 columns, indicating the 5 transactions and 169 possible items we requested.
+```{r}
+
+# visualization of a random sample of 100 transactions
+image(sample(groceries, 100))
+```
+This creates a matrix diagram with 100 rows and 169 columns. The command to create random selection of  100 transactions.A few columns seem fairly heavily populated, indicating some very popular items at the store.Overall distribution iss fairly random.
+
+Step 3 - training a model on the data
+
+I am an implementation of the Apriori algorithm in the arules package.
+```{r}
+
+## Step 3: Training a model on the data ----
+library(arules)
+
+# default settings result in zero rules learned
+apriori(groceries)
+
+```
+```{r}
+# set better support and confidence levels to learn more rules
+groceryrules <- apriori(groceries, parameter = list(support =
+                          0.006, confidence = 0.25, minlen = 2))
+groceryrules
+```
+Step 4 - evaluating model performance
+```{r}
+# summary of grocery association rules
+summary(groceryrules)
+```
+```{r}
+# look at the first three rules
+inspect(groceryrules[1:3])
+```
+This means if customer buying potted plants they will also buy whole milk with the support 0.0069 and confidence 0.400.
+
+Step 5 - improving model performance
+```{r}
+# sorting grocery rules by lift
+inspect(sort(groceryrules, by = "lift")[1:5])
+```
+The first rule, with a lift of about 3.96, implies that people who buy herbs are nearly four times more likely to buy root vegetables than the typical customer.
+
+```{r}
+# finding subsets of rules containing any berry items
+berryrules <- subset(groceryrules, items %in% "berries")
+inspect(berryrules)
+```
+```{r}
+# writing the rules to a CSV file
+write(groceryrules, file = "groceryrules.csv",
+      sep = ",", quote = TRUE, row.names = FALSE)
+# converting the rule set to a data frame
+groceryrules_df <- as(groceryrules, "data.frame")
+str(groceryrules_df)
+```
+
