@@ -6,7 +6,7 @@ colnames(Banknote)[2]="skewness_Wavelet"
 colnames(Banknote)[3]="curtosis_Wavelet"
 colnames(Banknote)[4]="entropy"
 colnames(Banknote)[5]="class"
-View(Banknote)
+
 # The dataset is too huge for knn analysis, we have chosen random 20%
 divide=sample(nrow(Banknote),floor(nrow(Banknote)*0.2))
 Banknote=Banknote[divide,]
